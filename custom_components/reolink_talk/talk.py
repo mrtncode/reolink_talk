@@ -787,6 +787,7 @@ async def talk_playback(
     )
 
     try:
+        await asyncio.sleep(0.1)  # give the camera a moment to start talk mode
         for payload, blocks_in_payload in payloads:
             await send_talk_binary(bc, channel, payload, enc_type=enc_used)
 
@@ -795,6 +796,7 @@ async def talk_playback(
             samples_sent = (adpcm_len - 4 * blocks_in_payload) * 2 + blocks_in_payload
             play_length = samples_sent / float(ability.sample_rate)
             await asyncio.sleep(play_length)
+        await asyncio.sleep(1.3)  # give the camera a moment to finish playback
     finally:
         try:
             await bc.send(cmd_id=11, channel=channel, enc_type=enc_used)
