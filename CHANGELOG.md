@@ -3,6 +3,26 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-08-23
+
+### Added
+
+- **Stop / pause support**: a running announcement can now be aborted
+  (`media_player.media_stop`, `media_player.media_pause`, or the play/pause
+  button on a media player card). The streaming loop reacts immediately and
+  still closes the talk session cleanly (Baichuan cmd 11).
+
+### Fixed
+
+- **`Entity ... does not support action media_player.media_play_pause`**:
+  media player cards (e.g. `custom:mini-media-player`) call
+  `media_play_pause` unconditionally, which failed because the entity
+  advertised neither `PLAY` nor `PAUSE`. The entity now advertises
+  `STOP | PAUSE`, and `async_media_play()` is implemented as an explicit
+  no-op so pressing play while idle does nothing instead of raising.
+  `PLAY` itself is deliberately **not** advertised — this player has nothing
+  to resume; it only speaks what `play_media`/TTS hands it.
+
 ## [0.2.1] - 2026-07-02
 
 ### Fixed
