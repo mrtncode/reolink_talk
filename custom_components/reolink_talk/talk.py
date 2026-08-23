@@ -690,6 +690,7 @@ async def talk_playback(
     ability: TalkAbility,
     *,
     block_align: int | None = None,
+    cancel: asyncio.Event | None = None,
 ) -> None:
     from reolink_aio.exceptions import ApiError
     from reolink_aio.baichuan import util as bc_util
@@ -787,14 +788,25 @@ async def talk_playback(
     )
 
     try:
-        for payload, blocks_in_payload in payloads:
+        for index, (payload, blocks_in_payload) in enumerate(payloads):
+            if cancel is not None and cancel.is_set():
+                _LOGGER.debug("Talk playback aborted after %d/%d payloads", index, len(payloads))
+                break
+
             await send_talk_binary(bc, channel, payload, enc_type=enc_used)
 
             # Pace like neolink: sleep for the playback time of the data we just sent.
             adpcm_len = full_block_size * blocks_in_payload
             samples_sent = (adpcm_len - 4 * blocks_in_payload) * 2 + blocks_in_payload
             play_length = samples_sent / float(ability.sample_rate)
-            await asyncio.sleep(play_length)
+            if cancel is None:
+                await asyncio.sleep(play_length)
+            else:
+                # Same pacing, but react to a stop request immediately.
+                try:
+                    await asyncio.wait_for(cancel.wait(), timeout=play_length)
+                except TimeoutError:
+                    pass  # normal pacing elapsed, keep streaming
     finally:
         try:
             await bc.send(cmd_id=11, channel=channel, enc_type=enc_used)

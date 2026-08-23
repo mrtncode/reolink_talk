@@ -63,6 +63,26 @@ You can:
 - Use the media browser to pick local files from `media/` or TTS providers.
 - Call `media_player.play_media` from automations/scripts.
 - Use the volume slider (software volume; some camera models may also support hardware speak volume).
+- Abort a running announcement with `media_player.media_stop` (or the
+  play/pause button on a media player card).
+
+### Note on media player cards
+
+This entity is an **announcement player**: it speaks whatever `play_media`
+or TTS hands it. It supports `PLAY_MEDIA`, `VOLUME_SET`, `BROWSE_MEDIA`,
+`MEDIA_ANNOUNCE`, `STOP` and `PAUSE` — but deliberately not `PLAY`
+(there is nothing to resume) and not `TURN_ON`/`TURN_OFF` (a camera speaker
+has no power state).
+
+If you use `custom:mini-media-player`, set `toggle_power: false`, otherwise
+its power button calls `turn_on`/`turn_off`, which this entity does not
+implement:
+
+```yaml
+type: custom:mini-media-player
+entity: media_player.reolink_talk_<camera>
+toggle_power: false
+```
 
 ### Example: TTS to the camera speaker
 

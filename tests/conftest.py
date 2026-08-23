@@ -141,6 +141,12 @@ class FakeBaichuanModern:
         self._connection = FakeConnection()
         self.aes_calls: list[object] = []
         self.login_calls = 0
+        # High-level Baichuan.send() calls: (cmd_id, channel, body, enc_type)
+        self.sent_cmds: list[tuple[int, int | None, str, object]] = []
+
+    async def send(self, cmd_id, channel=None, body="", enc_type=None, **kwargs):
+        self.sent_cmds.append((cmd_id, channel, body, enc_type))
+        return ""
 
     def _aes_encrypt(self, body):
         self.aes_calls.append(body)
