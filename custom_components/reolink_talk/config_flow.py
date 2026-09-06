@@ -22,13 +22,12 @@ class ReolinkTalkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry):
-        return ReolinkTalkOptionsFlowHandler(config_entry)
+        # HA >= 2024.11 provides OptionsFlow.config_entry itself; passing the
+        # entry into __init__ / storing it manually is the deprecated pattern.
+        return ReolinkTalkOptionsFlowHandler()
 
 
 class ReolinkTalkOptionsFlowHandler(config_entries.OptionsFlow):
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self._config_entry = config_entry
-
     async def async_step_init(self, user_input=None):
         hass = self.hass
         reolink_entries = hass.config_entries.async_entries("reolink")
@@ -41,7 +40,7 @@ class ReolinkTalkOptionsFlowHandler(config_entries.OptionsFlow):
             {
                 vol.Optional(
                     CONF_REOLINK_ENTRY_IDS,
-                    default=self._config_entry.options.get(CONF_REOLINK_ENTRY_IDS, list(entry_map.keys())),
+                    default=self.config_entry.options.get(CONF_REOLINK_ENTRY_IDS, list(entry_map.keys())),
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=[selector.SelectOptionDict(value=eid, label=title) for eid, title in entry_map.items()],
@@ -51,7 +50,7 @@ class ReolinkTalkOptionsFlowHandler(config_entries.OptionsFlow):
                 ),
                 vol.Optional(
                     CONF_CHANNEL,
-                    default=self._config_entry.options.get(CONF_CHANNEL, DEFAULT_CHANNEL),
+                    default=self.config_entry.options.get(CONF_CHANNEL, DEFAULT_CHANNEL),
                 ): vol.Coerce(int),
             }
         )

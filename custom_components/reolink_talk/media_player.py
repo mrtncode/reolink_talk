@@ -5,14 +5,15 @@ import logging
 import os
 from dataclasses import dataclass
 
-from homeassistant.components.media_player import MediaPlayerEntity
-from homeassistant.components.media_player.const import (
+from homeassistant.components.media_player import (
+    MediaPlayerDeviceClass,
+    MediaPlayerEntity,
     MediaPlayerEntityFeature,
     MediaPlayerState,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import CONF_CHANNEL, CONF_REOLINK_ENTRY_IDS, DEFAULT_CHANNEL, DOMAIN
 from .talk import ffmpeg_to_pcm_s16le, fetch_bytes, ima_adpcm_encode_dvi_blocks, parse_talk_ability, talk_playback
@@ -32,7 +33,9 @@ class ReolinkTarget:
     channel: int
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
+) -> None:
     reolink_entry_ids: list[str] = entry.options.get(CONF_REOLINK_ENTRY_IDS, [])
     if not reolink_entry_ids:
         # Be resilient: on first install or after entry migrations, options can
@@ -73,14 +76,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class ReolinkTalkPlayer(MediaPlayerEntity):
     # Add BROWSE_MEDIA because some frontend pickers filter to "browsable"
     # players even though we only need PLAY_MEDIA for TTS/MP3 playback.
-    # STOP/PAUSE let a running announcement be aborted; media player cards
-    # (e.g. mini-media-player) call media_play_pause unconditionally and
-    # would otherwise fail with "does not support action".
+    # STOP/PAUSE let a running announcement be aborted. PLAY is advertised too
+    # (as a no-op): media player cards call media_play_pause unconditionally,
+    # and HA only accepts that service when PLAY *and* PAUSE are supported
+    # (required_features check: features & (PLAY | PAUSE) == PLAY | PAUSE).
     _attr_supported_features = (
         MediaPlayerEntityFeature.PLAY_MEDIA
         | MediaPlayerEntityFeature.VOLUME_SET
         | MediaPlayerEntityFeature.BROWSE_MEDIA
         | MediaPlayerEntityFeature.STOP
+        | MediaPlayerEntityFeature.PLAY
         | MediaPlayerEntityFeature.PAUSE
         | MediaPlayerEntityFeature.MEDIA_ANNOUNCE
     )
@@ -88,8 +93,7 @@ class ReolinkTalkPlayer(MediaPlayerEntity):
     _attr_icon = "mdi:cctv"
     _attr_state = MediaPlayerState.IDLE
     # Some UI target pickers filter media_players to "speaker"-like devices.
-    # Older HA versions model this as a plain string, not an enum.
-    _attr_device_class = "speaker"
+    _attr_device_class = MediaPlayerDeviceClass.SPEAKER
 
     def __init__(self, hass: HomeAssistant, reolink_entry_id: str, target: ReolinkTarget, mp_name: str) -> None:
         self.hass = hass
@@ -203,8 +207,8 @@ class ReolinkTalkPlayer(MediaPlayerEntity):
     async def async_media_play(self) -> None:
         """No-op: this player only speaks what play_media/TTS hands it.
 
-        Implemented (without advertising the PLAY feature) so that cards
-        calling media_play_pause while idle get a no-op instead of an error.
+        PLAY must be advertised for HA to accept media_play_pause at all, so
+        pressing play while idle lands here and must be a harmless no-op.
         """
         _LOGGER.debug("media_play on %s: nothing to resume, ignoring", self.entity_id)
 
