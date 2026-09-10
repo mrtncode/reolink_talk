@@ -3,6 +3,57 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.1] - 2026-09-06
+
+Compatibility pass for Home Assistant 2026.9.1 (Python 3.14, reolink-aio 0.21.15).
+
+### Fixed
+
+- **`media_play_pause` was still rejected after 0.3.0.** Home Assistant checks
+  `features & (PLAY | PAUSE) == PLAY | PAUSE`, i.e. it requires *both* bits;
+  0.3.0 only advertised `PAUSE`. `PLAY` is now advertised as well (the
+  existing no-op `async_media_play()` handles it). Caught by the new
+  in-Home-Assistant test — the 0.3.0 changelog claim was wrong.
+
+### Changed
+
+- `device_class` uses `MediaPlayerDeviceClass.SPEAKER` instead of a string.
+- Platform setup typed with `AddConfigEntryEntitiesCallback`; media player
+  enums imported from the `media_player` package instead of `.const`.
+- Options flow follows the HA >= 2024.11 pattern (no `config_entry`
+  constructor argument; uses the framework-provided `self.config_entry`).
+- `manifest.json` declares `single_config_entry`.
+- Test pins bumped to `reolink-aio==0.21.15` (the version bundled with HA
+  2026.9.1); the private Baichuan API used by `send_talk_binary` is unchanged
+  between 0.21.3 and 0.21.15 (verified by the real-class test).
+
+### Added
+
+- `tests/test_setup_ha.py`: sets the integration up inside a real Home
+  Assistant (config entry, entity/features, card services, options flow, and
+  a guard against HA deprecation warnings). Runs via
+  `requirements-test-ha.txt` and a dedicated CI job on Python 3.14.
+
+## [0.3.0] - 2026-08-23
+
+### Added
+
+- **Stop / pause support**: a running announcement can now be aborted
+  (`media_player.media_stop`, `media_player.media_pause`, or the play/pause
+  button on a media player card). The streaming loop reacts immediately and
+  still closes the talk session cleanly (Baichuan cmd 11).
+
+### Fixed
+
+- **`Entity ... does not support action media_player.media_play_pause`**:
+  media player cards (e.g. `custom:mini-media-player`) call
+  `media_play_pause` unconditionally, which failed because the entity
+  advertised neither `PLAY` nor `PAUSE`. The entity now advertises
+  `STOP | PAUSE`, and `async_media_play()` is implemented as an explicit
+  no-op so pressing play while idle does nothing instead of raising.
+  `PLAY` itself is deliberately **not** advertised — this player has nothing
+  to resume; it only speaks what `play_media`/TTS hands it.
+
 ## [0.2.1] - 2026-07-02
 
 ### Fixed

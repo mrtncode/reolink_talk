@@ -5,14 +5,15 @@ import logging
 import os
 from dataclasses import dataclass
 
-from homeassistant.components.media_player import MediaPlayerEntity
-from homeassistant.components.media_player.const import (
+from homeassistant.components.media_player import (
+    MediaPlayerDeviceClass,
+    MediaPlayerEntity,
     MediaPlayerEntityFeature,
     MediaPlayerState,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import CONF_CHANNEL, CONF_REOLINK_ENTRY_IDS, DEFAULT_CHANNEL, DOMAIN
 from .talk import ffmpeg_to_pcm_s16le, fetch_bytes, ima_adpcm_encode_dvi_blocks, parse_talk_ability, talk_playback
@@ -32,7 +33,9 @@ class ReolinkTarget:
     channel: int
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
+) -> None:
     reolink_entry_ids: list[str] = entry.options.get(CONF_REOLINK_ENTRY_IDS, [])
     if not reolink_entry_ids:
         # Be resilient: on first install or after entry migrations, options can
@@ -73,18 +76,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class ReolinkTalkPlayer(MediaPlayerEntity):
     # Add BROWSE_MEDIA because some frontend pickers filter to "browsable"
     # players even though we only need PLAY_MEDIA for TTS/MP3 playback.
+    # STOP/PAUSE let a running announcement be aborted. PLAY is advertised too
+    # (as a no-op): media player cards call media_play_pause unconditionally,
+    # and HA only accepts that service when PLAY *and* PAUSE are supported
+    # (required_features check: features & (PLAY | PAUSE) == PLAY | PAUSE).
     _attr_supported_features = (
         MediaPlayerEntityFeature.PLAY_MEDIA
         | MediaPlayerEntityFeature.VOLUME_SET
         | MediaPlayerEntityFeature.BROWSE_MEDIA
-        | getattr(MediaPlayerEntityFeature, "MEDIA_ANNOUNCE", 0)
+        | MediaPlayerEntityFeature.STOP
+        | MediaPlayerEntityFeature.PLAY
+        | MediaPlayerEntityFeature.PAUSE
+        | MediaPlayerEntityFeature.MEDIA_ANNOUNCE
     )
     _attr_media_content_type = None
     _attr_icon = "mdi:cctv"
     _attr_state = MediaPlayerState.IDLE
     # Some UI target pickers filter media_players to "speaker"-like devices.
-    # Older HA versions model this as a plain string, not an enum.
-    _attr_device_class = "speaker"
+    _attr_device_class = MediaPlayerDeviceClass.SPEAKER
 
     def __init__(self, hass: HomeAssistant, reolink_entry_id: str, target: ReolinkTarget, mp_name: str) -> None:
         self.hass = hass
@@ -97,6 +106,8 @@ class ReolinkTalkPlayer(MediaPlayerEntity):
         self._attr_volume_level = 1.0
         self._lock = asyncio.Lock()
         self._last_ability = None
+        # Set while an announcement is streaming; setting it aborts playback.
+        self._cancel_playback: asyncio.Event | None = None
 
     async def async_added_to_hass(self) -> None:
         # Lightweight, best-effort probe to decide if the camera supports talk.
@@ -161,17 +172,45 @@ class ReolinkTalkPlayer(MediaPlayerEntity):
         # Resolve HA media-source URLs if needed.
 
         async with self._lock:
+            cancel = asyncio.Event()
+            self._cancel_playback = cancel
             try:
                 self._attr_state = MediaPlayerState.PLAYING
                 self.async_write_ha_state()
                 media_bytes = await self._resolve_media_bytes(media_type, media_id)
-                await self._play_bytes(media_bytes)
+                await self._play_bytes(media_bytes, cancel=cancel)
             except Exception:
                 _LOGGER.exception("play_media failed for %s (media_id=%s)", self.entity_id, media_id)
                 raise
             finally:
+                self._cancel_playback = None
                 self._attr_state = MediaPlayerState.IDLE
                 self.async_write_ha_state()
+
+    async def async_media_stop(self) -> None:
+        """Abort a running announcement.
+
+        Deliberately does not take self._lock: async_play_media holds it for
+        the whole announcement, so waiting for it here would deadlock.
+        """
+        cancel = self._cancel_playback
+        if cancel is None:
+            _LOGGER.debug("media_stop: nothing playing on %s", self.entity_id)
+            return
+        _LOGGER.debug("media_stop: aborting announcement on %s", self.entity_id)
+        cancel.set()
+
+    async def async_media_pause(self) -> None:
+        """Pause is not meaningful for a live talk stream; abort instead."""
+        await self.async_media_stop()
+
+    async def async_media_play(self) -> None:
+        """No-op: this player only speaks what play_media/TTS hands it.
+
+        PLAY must be advertised for HA to accept media_play_pause at all, so
+        pressing play while idle lands here and must be a harmless no-op.
+        """
+        _LOGGER.debug("media_play on %s: nothing to resume, ignoring", self.entity_id)
 
     async def _resolve_media_bytes(self, media_type: str, media_id: str) -> bytes:
         """Return media bytes for play_media.
@@ -232,7 +271,7 @@ class ReolinkTalkPlayer(MediaPlayerEntity):
         media_url = async_process_play_media_url(self.hass, media_url)
         return await fetch_bytes(self.hass, media_url)
 
-    async def _play_bytes(self, media_bytes: bytes) -> None:
+    async def _play_bytes(self, media_bytes: bytes, *, cancel: asyncio.Event | None = None) -> None:
         # Lazy imports: `reolink_aio` is already in HA because the official
         # Reolink integration uses it.
         from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -285,7 +324,14 @@ class ReolinkTalkPlayer(MediaPlayerEntity):
             )
 
             # 3) Send over Baichuan talk (cmd 201/202/11)
-            await talk_playback(bc, self._target.channel, adpcm_bytes, ability, block_align=full_block_size)
+            await talk_playback(
+                bc,
+                self._target.channel,
+                adpcm_bytes,
+                ability,
+                block_align=full_block_size,
+                cancel=cancel,
+            )
         finally:
             try:
                 await host.logout()

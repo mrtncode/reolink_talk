@@ -63,6 +63,28 @@ You can:
 - Use the media browser to pick local files from `media/` or TTS providers.
 - Call `media_player.play_media` from automations/scripts.
 - Use the volume slider (software volume; some camera models may also support hardware speak volume).
+- Abort a running announcement with `media_player.media_stop` (or the
+  play/pause button on a media player card).
+
+### Note on media player cards
+
+This entity is an **announcement player**: it speaks whatever `play_media`
+or TTS hands it. It supports `PLAY_MEDIA`, `VOLUME_SET`, `BROWSE_MEDIA`,
+`MEDIA_ANNOUNCE`, `STOP`, `PAUSE` and `PLAY`. Stop/pause abort a running
+announcement; play is a no-op (there is nothing to resume) but must be
+advertised because Home Assistant only accepts `media_play_pause` when
+**both** `PLAY` and `PAUSE` are supported. `TURN_ON`/`TURN_OFF` are
+deliberately not implemented (a camera speaker has no power state).
+
+If you use `custom:mini-media-player`, set `toggle_power: false`, otherwise
+its power button calls `turn_on`/`turn_off`, which this entity does not
+implement:
+
+```yaml
+type: custom:mini-media-player
+entity: media_player.reolink_talk_<camera>
+toggle_power: false
+```
 
 ### Example: TTS to the camera speaker
 
@@ -148,7 +170,8 @@ ruff check . && ruff format --check .
 ```
 
 CI runs hassfest, HACS validation, ruff and pytest (Python 3.13/3.14) on every
-push and pull request.
+push and pull request, plus the same suite inside a real Home Assistant
+(`requirements-test-ha.txt` pins the exact HA release; needs Python >= 3.14).
 
 ## License
 

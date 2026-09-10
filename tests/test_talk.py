@@ -8,13 +8,29 @@ passing the Extension XML as str to Baichuan._aes_encrypt).
 
 from __future__ import annotations
 
+import asyncio
+
 from reolink_aio.baichuan import util as bc_util
 
 from custom_components.reolink_talk.talk import (
     BC_MESSAGE_CLASS_1464,
+    TalkAbility,
     bcmedia_adpcm_packet,
     send_talk_binary,
     talk_binary_payload,
+    talk_playback,
+)
+
+BLOCK = 516
+ABILITY = TalkAbility(
+    duplex="FDX",
+    audio_stream_mode="mixAudioStream",
+    audio_type="adpcm",
+    priority=None,
+    sample_rate=16000,
+    sample_precision=16,
+    length_per_encoder=1024,
+    sound_track="mono",
 )
 
 HEADER_LEN = 24  # magic(4) + cmd_id(4) + mess_len(4) + ch_id(1) + mess_id(3) + class(4) + payload_offset(4)
@@ -159,6 +175,47 @@ async def test_send_talk_binary_against_real_baichuan_class():
     assert cmd_id == 202
     assert channel == 0
     assert data.endswith(payload)
+
+
+async def test_talk_playback_aborts_on_cancel(bc_modern):
+    """media_stop/media_pause must cut a running announcement short."""
+    cancel = asyncio.Event()
+    inner_send = bc_modern._connection.send
+
+    async def send_then_cancel(data, cmd_id, full_mess_id, channel=None, log_mess=""):
+        result = await inner_send(data, cmd_id, full_mess_id, channel, log_mess)
+        cancel.set()  # simulate the user hitting stop after the first frame
+        return result
+
+    bc_modern._connection.send = send_then_cancel
+
+    adpcm = b"\x00" * (BLOCK * 24)  # 24 blocks -> 6 payloads
+    await talk_playback(bc_modern, 0, adpcm, ABILITY, block_align=BLOCK, cancel=cancel)
+
+    assert len(bc_modern._connection.sent) == 1  # aborted after the first payload
+    # the talk session is still stopped cleanly (cmd 11)
+    assert 11 in [cmd for cmd, *_ in bc_modern.sent_cmds]
+
+
+async def test_talk_playback_streams_all_payloads_without_cancel(bc_modern):
+    adpcm = b"\x00" * (BLOCK * 8)  # 8 blocks -> 2 payloads
+    await talk_playback(bc_modern, 0, adpcm, ABILITY, block_align=BLOCK)
+
+    assert len(bc_modern._connection.sent) == 2
+    cmds = [cmd for cmd, *_ in bc_modern.sent_cmds]
+    assert 201 in cmds  # TalkConfig
+    assert 11 in cmds  # stop talk
+
+
+async def test_talk_playback_cancel_set_upfront_sends_nothing(bc_modern):
+    cancel = asyncio.Event()
+    cancel.set()
+    adpcm = b"\x00" * (BLOCK * 8)
+
+    await talk_playback(bc_modern, 0, adpcm, ABILITY, block_align=BLOCK, cancel=cancel)
+
+    assert bc_modern._connection.sent == []
+    assert 11 in [cmd for cmd, *_ in bc_modern.sent_cmds]
 
 
 def test_talk_binary_payload_grouping():
