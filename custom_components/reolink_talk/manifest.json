@@ -3,11 +3,10 @@
   "name": "Reolink Talk (Two-Way Audio)",
   "codeowners": ["@magicx78", "@joeblack2k"],
   "config_flow": true,
-  "dependencies": ["reolink"],
   "documentation": "https://github.com/magicx78/reolink_talk",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/magicx78/reolink_talk/issues",
-  "requirements": [],
+  "requirements": ["reolink-aio-custom@git+https://github.com/mrtncode/reolink_aio_custom.git"],
   "single_config_entry": true,
   "version": "0.3.1"
 }

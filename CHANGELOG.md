@@ -59,18 +59,18 @@ Compatibility pass for Home Assistant 2026.9.1 (Python 3.14, reolink-aio 0.21.15
 ### Fixed
 
 - **`'Baichuan' object has no attribute '_mutex'`** when sending talk audio
-  on current Home Assistant. `reolink_aio` 0.21 moved the TCP/UDP plumbing
+  on current Home Assistant. `reolink_aio_custom` 0.21 moved the TCP/UDP plumbing
   from the `Baichuan` object (`_mutex`/`_transport`/`_protocol`) into a
   dedicated connection object; `send_talk_binary()` now uses
   `bc._connection.send()` (which writes under the connection's lock and
   awaits the camera ack) and keeps the old transport path as a fallback for
-  older `reolink_aio` versions. Found during a real TTS hardware test.
+  older `reolink_aio_custom` versions. Found during a real TTS hardware test.
 
 ### Added
 
 - Integration-style regression test that drives the **real**
-  `reolink_aio.Baichuan` class (only the network layer replaced), so future
-  changes to reolink_aio's private attribute layout fail in CI instead of on
+  `reolink_aio_custom.Baichuan` class (only the network layer replaced), so future
+  changes to reolink_aio_custom's private attribute layout fail in CI instead of on
   the camera.
 
 ## [0.2.0] - 2026-07-02
@@ -82,12 +82,12 @@ First release of the maintained fork ([magicx78/reolink_talk](https://github.com
 - **Upstream [#6](https://github.com/joeblack2k/reolink_talk/issues/6)**:
   `TypeError: Object type <class 'str'> cannot be passed to C code`.
   The Extension XML for talk binary frames (cmd 202) was built as `str` and
-  passed directly to `reolink_aio`'s `Baichuan._aes_encrypt(body: bytes)`,
+  passed directly to `reolink_aio_custom`'s `Baichuan._aes_encrypt(body: bytes)`,
   which hands it straight to Cryptodome C code. Every talk/TTS playback with
   AES encryption crashed on Python 3.13+/3.14 (current Home Assistant).
   The extension is now UTF-8 encoded via a new `ensure_bytes()` helper and the
   whole payload chain is normalized to `bytes` before packet assembly.
-  (The bug is in this integration, not in `reolink_aio`; a defensive
+  (The bug is in this integration, not in `reolink_aio_custom`; a defensive
   `str`-accepting `_aes_encrypt` upstream would merely be a nice-to-have.)
 - **Upstream [#1](https://github.com/joeblack2k/reolink_talk/issues/1)**:
   HACS installation crashed due to `zip_release: true` without `filename` in

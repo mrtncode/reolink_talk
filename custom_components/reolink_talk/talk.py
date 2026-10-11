@@ -537,29 +537,29 @@ def ima_adpcm_encode_dvi_blocks(pcm_s16le: bytes, *, full_block_size: int) -> by
 
 
 async def send_talk_binary(
-    bc,  # reolink_aio.baichuan.Baichuan
+    bc,  # reolink_aio_custom.baichuan.Baichuan
     channel: int,
     binary_payload: bytes,
     *,
     mess_id: int | None = None,
     enc_type=None,
 ) -> None:
-    # Like reolink_aio Baichuan.send(), but:
+    # Like reolink_aio_custom Baichuan.send(), but:
     # - doesn't wait for a response
     # - encrypts only the Extension XML
     # - appends the BcMedia binary payload unencrypted
-    from reolink_aio.baichuan import util as bc_util
-    from reolink_aio.baichuan import xmls
+    from reolink_aio_custom.baichuan import util as bc_util
+    from reolink_aio_custom.baichuan import xmls
 
     if not getattr(bc, "_logged_in", False):
         await bc.login()
 
-    # reolink_aio internal fields have changed between versions. We only need a
+    # reolink_aio_custom internal fields have changed between versions. We only need a
     # monotonically increasing 24-bit message id for the Baichuan header.
     if not hasattr(bc, "_mess_id"):
         setattr(bc, "_mess_id", 0)
 
-    # Map channel -> ch_id like reolink_aio does (1.. for channels)
+    # Map channel -> ch_id like reolink_aio_custom does (1.. for channels)
     ch_id = channel + 1
 
     ext = (
@@ -579,7 +579,7 @@ async def send_talk_binary(
     # - len_body (rec_len_body) to know how many bytes to consume after the header
     # - payload_offset to split "message" vs "payload" bytes
     #
-    # For normal AES messages, reolink_aio sets both to the *plaintext* length
+    # For normal AES messages, reolink_aio_custom sets both to the *plaintext* length
     # and sends only encrypted body bytes (no extra payload bytes).
     #
     # For talk/audio (cmd 202), we send:
@@ -605,7 +605,7 @@ async def send_talk_binary(
         # encrypt_baichuan accepts str and returns bytes.
         enc_ext = bc_util.encrypt_baichuan(ext, ch_id)  # enc_offset = ch_id
     else:
-        # reolink_aio Baichuan._aes_encrypt(body: bytes) hands its argument
+        # reolink_aio_custom Baichuan._aes_encrypt(body: bytes) hands its argument
         # straight to Cryptodome C code, which rejects str (upstream issue #6).
         enc_ext = bc._aes_encrypt(ensure_bytes(ext, name="extension XML"))
 
@@ -647,7 +647,7 @@ async def send_talk_binary(
 
     full_mess_id = int.from_bytes(int(ch_id).to_bytes(1, "little") + int(bc._mess_id).to_bytes(3, "little"), "little")
 
-    # reolink_aio >= 0.21 moved the TCP/UDP plumbing into a connection object
+    # reolink_aio_custom >= 0.21 moved the TCP/UDP plumbing into a connection object
     # (Baichuan no longer has _mutex/_transport/_protocol). Its send() writes
     # under its own lock and awaits the camera ack, which is exactly the
     # behavior replicated manually below for older versions.
@@ -656,7 +656,7 @@ async def send_talk_binary(
         await connection.send(packet, cmd_id, full_mess_id, channel)
         return
 
-    # Older reolink_aio exposed transport/protocol/mutex directly on Baichuan.
+    # Older reolink_aio_custom exposed transport/protocol/mutex directly on Baichuan.
     proto = getattr(bc, "_protocol", None)
     loop = getattr(bc, "_loop", None)
     if proto is None or loop is None:
@@ -685,7 +685,7 @@ async def send_talk_binary(
 
 
 async def talk_playback(
-    bc,  # reolink_aio.baichuan.Baichuan
+    bc,  # reolink_aio_custom.baichuan.Baichuan
     channel: int,
     adpcm_bytes: bytes,
     ability: TalkAbility,
@@ -693,8 +693,8 @@ async def talk_playback(
     block_align: int | None = None,
     cancel: asyncio.Event | None = None,
 ) -> None:
-    from reolink_aio.exceptions import ApiError
-    from reolink_aio.baichuan import util as bc_util
+    from reolink_aio_custom.exceptions import ApiError
+    from reolink_aio_custom.baichuan import util as bc_util
 
     async def _send_with_fallback(cmd_id: int, *, body: str = "") -> bc_util.EncType:
         # Some firmwares expect BC encryption for talk commands (otherwise 400).

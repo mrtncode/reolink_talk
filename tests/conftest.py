@@ -1,7 +1,7 @@
-"""Shared fixtures: a strict fake of reolink_aio's Baichuan client.
+"""Shared fixtures: a strict fake of reolink_aio_custom's Baichuan client.
 
 FakeBaichuan mimics the private attributes that send_talk_binary() touches on
-the real reolink_aio Baichuan object. Its _aes_encrypt is intentionally
+the real reolink_aio_custom Baichuan object. Its _aes_encrypt is intentionally
 STRICTER than a plain mock: like Cryptodome's C layer it rejects anything
 that is not bytes, so the regression test for upstream issue #6 fails loudly
 if a str ever reaches the encryption layer again.
@@ -115,7 +115,7 @@ class FakeBaichuan:
 
 
 class FakeConnection:
-    """Mimics reolink_aio >= 0.21 BaichuanTcpConnection/BaichuanUdpConnection."""
+    """Mimics reolink_aio_custom >= 0.21 BaichuanTcpConnection/BaichuanUdpConnection."""
 
     def __init__(self) -> None:
         self.sent: list[tuple[bytes, int, int, int | None]] = []
@@ -127,7 +127,7 @@ class FakeConnection:
 
 
 class FakeBaichuanModern:
-    """Mimics reolink_aio >= 0.21: the TCP/UDP plumbing lives in _connection.
+    """Mimics reolink_aio_custom >= 0.21: the TCP/UDP plumbing lives in _connection.
 
     Deliberately does NOT define _mutex/_transport/_protocol — exactly like
     the real Baichuan class since 0.21 — so a regression back to the old

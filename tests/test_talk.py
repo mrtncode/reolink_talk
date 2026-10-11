@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 
-from reolink_aio.baichuan import util as bc_util
+from reolink_aio_custom.baichuan import util as bc_util
 
 from custom_components.reolink_talk.talk import (
     BC_MESSAGE_CLASS_1464,
@@ -91,7 +91,7 @@ async def test_send_talk_binary_explicit_mess_id(bc):
 
 
 async def test_send_talk_binary_bc_enctype_uses_encrypt_baichuan(bc):
-    """The BC path goes through reolink_aio's encrypt_baichuan (str-safe)."""
+    """The BC path goes through reolink_aio_custom's encrypt_baichuan (str-safe)."""
     payload = b"\x55" * 16
     await send_talk_binary(bc, 0, payload, enc_type=bc_util.EncType.BC)
 
@@ -109,7 +109,7 @@ async def test_send_talk_binary_logs_in_when_needed(bc):
 
 
 async def test_send_talk_binary_modern_connection_layer(bc_modern):
-    """Regression: reolink_aio >= 0.21 has no _mutex/_transport on Baichuan.
+    """Regression: reolink_aio_custom >= 0.21 has no _mutex/_transport on Baichuan.
 
     The plumbing moved into bc._connection; send_talk_binary must use its
     send() instead of the old attributes ('Baichuan' object has no attribute
@@ -140,13 +140,13 @@ async def test_send_talk_binary_same_packet_on_both_layouts(bc, bc_modern):
 
 
 async def test_send_talk_binary_against_real_baichuan_class():
-    """Drive send_talk_binary through the REAL reolink_aio Baichuan class.
+    """Drive send_talk_binary through the REAL reolink_aio_custom Baichuan class.
 
-    Only the network layer is replaced. Catches drift in reolink_aio's
+    Only the network layer is replaced. Catches drift in reolink_aio_custom's
     private attribute layout (like the 0.21 connection refactor) that pure
     fakes cannot see.
     """
-    from reolink_aio.baichuan.baichuan import Baichuan
+    from reolink_aio_custom.baichuan.baichuan import Baichuan
 
     class RecordingConnection:
         def __init__(self):

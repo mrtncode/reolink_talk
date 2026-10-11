@@ -69,7 +69,7 @@ def _ensure_venv() -> None:
 
     # Install deps if missing.
     try:
-        subprocess.check_call([str(py), "-c", "import reolink_aio, aiohttp, Crypto"])
+        subprocess.check_call([str(py), "-c", "import reolink_aio_custom, aiohttp, Crypto"])
     except Exception:
         LOG.info("Installing dependencies into %s", venv)
         if pip is not None:
@@ -524,8 +524,8 @@ def ima_adpcm_encode_dvi_blocks(pcm_s16le: bytes, *, full_block_size: int) -> by
 
 
 async def send_talk_binary(bc, *, channel: int, binary_payload: bytes, enc_type, mess_id: int | None = None) -> None:
-    from reolink_aio.baichuan import util as bc_util
-    from reolink_aio.baichuan import xmls
+    from reolink_aio_custom.baichuan import util as bc_util
+    from reolink_aio_custom.baichuan import xmls
     from Crypto.Cipher import AES
 
     if not getattr(bc, "_logged_in", False):
@@ -621,12 +621,12 @@ async def send_talk_binary_with_encryptlen(
 ) -> None:
     """Send cmd202 with an Extension including <encryptLen> and AES-encrypt the first encrypt_payload_len bytes of payload.
 
-    Rationale: reolink_aio's push parser supports payloads that include an <encryptLen>
+    Rationale: reolink_aio_custom's push parser supports payloads that include an <encryptLen>
     field to indicate a prefix of the payload is AES-encrypted. Some firmwares may
     require this for talk payloads too.
     """
-    from reolink_aio.baichuan import util as bc_util
-    from reolink_aio.baichuan import xmls
+    from reolink_aio_custom.baichuan import util as bc_util
+    from reolink_aio_custom.baichuan import xmls
     from Crypto.Cipher import AES
 
     if not getattr(bc, "_logged_in", False):
@@ -699,9 +699,9 @@ async def send_talk_binary_with_encryptlen(
 
 
 async def run(args: argparse.Namespace) -> int:
-    from reolink_aio.api import Host
-    from reolink_aio.baichuan import util as bc_util
-    from reolink_aio.exceptions import ApiError
+    from reolink_aio_custom.api import Host
+    from reolink_aio_custom.baichuan import util as bc_util
+    from reolink_aio_custom.exceptions import ApiError
 
     cfg = load_reolink_entry(title=args.title, host=args.host)
     if cfg is None:
@@ -721,7 +721,7 @@ async def run(args: argparse.Namespace) -> int:
         input_bytes = p.read_bytes()
         LOG.info("Loaded file: %s (%s bytes)", p, len(input_bytes))
 
-    # aiohttp session callback expected by reolink_aio
+    # aiohttp session callback expected by reolink_aio_custom
     import aiohttp
 
     session = aiohttp.ClientSession()

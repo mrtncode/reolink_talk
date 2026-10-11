@@ -130,8 +130,8 @@ class ReolinkTalkPlayer(MediaPlayerEntity):
 
     async def async_set_volume_level(self, volume: float) -> None:
         from homeassistant.helpers.aiohttp_client import async_get_clientsession
-        from reolink_aio.api import Host
-        from reolink_aio.exceptions import InvalidParameterError, NotSupportedError, ReolinkError
+        from reolink_aio_custom.api import Host
+        from reolink_aio_custom.exceptions import InvalidParameterError, NotSupportedError, ReolinkError
 
         volume = max(0.0, min(1.0, float(volume)))
         self._attr_volume_level = volume
@@ -272,10 +272,10 @@ class ReolinkTalkPlayer(MediaPlayerEntity):
         return await fetch_bytes(self.hass, media_url)
 
     async def _play_bytes(self, media_bytes: bytes, *, cancel: asyncio.Event | None = None) -> None:
-        # Lazy imports: `reolink_aio` is already in HA because the official
+        # Lazy imports: `reolink_aio_custom` is already in HA because the official
         # Reolink integration uses it.
         from homeassistant.helpers.aiohttp_client import async_get_clientsession
-        from reolink_aio.api import Host
+        from reolink_aio_custom.api import Host
 
         # Size only — media URLs can embed auth tokens, never log them.
         _LOGGER.debug("Media resolved: %d bytes", len(media_bytes))
@@ -340,7 +340,7 @@ class ReolinkTalkPlayer(MediaPlayerEntity):
 
     async def _probe_ability(self, *, timeout_s: float = 5.0):
         from homeassistant.helpers.aiohttp_client import async_get_clientsession
-        from reolink_aio.api import Host
+        from reolink_aio_custom.api import Host
 
         # Cache within the entity instance to avoid extra round-trips.
         if self._last_ability is not None:

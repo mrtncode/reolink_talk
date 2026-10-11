@@ -24,7 +24,7 @@ This integration piggybacks on the **official Reolink integration** for credenti
 
 | Upstream issue | Problem | Status |
 | --- | --- | --- |
-| [#6](https://github.com/joeblack2k/reolink_talk/issues/6) | `TypeError: Object type <class 'str'> cannot be passed to C code` — the Extension XML was passed as `str` to `reolink_aio`'s AES encryption, crashing every talk/TTS playback on Python 3.13+/3.14 (current Home Assistant) | ✅ fixed (v0.2.0) |
+| [#6](https://github.com/joeblack2k/reolink_talk/issues/6) | `TypeError: Object type <class 'str'> cannot be passed to C code` — the Extension XML was passed as `str` to `reolink_aio_custom`'s AES encryption, crashing every talk/TTS playback on Python 3.13+/3.14 (current Home Assistant) | ✅ fixed (v0.2.0) |
 | [#1](https://github.com/joeblack2k/reolink_talk/issues/1) | HACS installation crashed (`zip_release` without `filename` in `hacs.json`) | ✅ fixed (v0.2.0, via upstream [PR #3](https://github.com/joeblack2k/reolink_talk/pull/3)) |
 | [#5](https://github.com/joeblack2k/reolink_talk/pull/5) | RLC-811A rejects TalkConfig with rspCode 421 when a stale talk session exists | ✅ fixed (v0.2.0, via upstream [PR #5](https://github.com/joeblack2k/reolink_talk/pull/5)) |
 
@@ -138,7 +138,7 @@ If you test a model successfully, please open a GitHub issue/PR and add it to th
 - If a camera is offline during startup, it may still show as available; the definitive check happens when you actually play media.
 - All data handed to the AES/Baichuan layer is normalized to `bytes`
   (`ensure_bytes()` in `util.py`) — the root cause of upstream issue #6.
-  A defensive `str`-accepting signature in `reolink_aio._aes_encrypt` would be
+  A defensive `str`-accepting signature in `reolink_aio_custom._aes_encrypt` would be
   a nice upstream hardening, but is not required.
 
 ## Debug logging
