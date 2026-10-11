@@ -8,5 +8,5 @@
   "issue_tracker": "https://github.com/magicx78/reolink_talk/issues",
   "requirements": ["reolink-aio-custom@git+https://github.com/mrtncode/reolink_aio_custom.git"],
   "single_config_entry": true,
-  "version": "0.3.1"
+  "version": "0.3.2"
 }
